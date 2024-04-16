@@ -1,7 +1,11 @@
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 use serde::Deserialize;
 
-
+#[derive(Debug, Deserialize)]
+struct ZipStyle {
+    zip: String,
+    style: String,
+}
 
 #[get("/")]
 async fn hello() -> impl Responder {
@@ -11,10 +15,10 @@ async fn hello() -> impl Responder {
 /*
   @param style - list of clothing styles 
 **/
-#[get("/{zip}/{style}")]
-async fn clothing_style(path: web::Path<String>) -> impl Responder {
-    let style = path.into_inner();
-    HttpResponse::Ok().body(format!("The style is: {}", style))
+#[get("/api/zip")]
+async fn clothing_style(info: web::Query<ZipStyle>) -> impl Responder {
+    println!("Country Zip: {}", info.zip);
+    return HttpResponse::Ok().body(format!("The style is: {}", info.style))
 }
 
 #[post("/echo")]
