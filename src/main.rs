@@ -1,4 +1,3 @@
-use std::env;
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 use image_search::Arguments;
 use serde::{Deserialize, Serialize};
@@ -36,14 +35,7 @@ struct ZipReturn {
     urls: Vec<String>,
 }
 
-#[get("/")]
-async fn hello() -> impl Responder {
-    HttpResponse::Ok().body("Hello world!")
-}
 
-/*
-  @param style - list of clothing styles 
-**/
 
 
 fn get_multiple<T>(object: &serde_json::Value, json_keys: Vec<&str>) -> Option<T> 
@@ -67,9 +59,8 @@ where
 
 #[get("/api/zip")]
 async fn clothing_style(info: web::Query<ZipStyle>) -> impl Responder {
-    let key = "OPENWEATHER_API_KEY";
     println!("Country Zip: {}", info.zip);
-    if let Ok(val) = env::var(key) {
+    if let Some(val) = option_env!("OPENWEATHER_API_KEY") {
         let response = reqwest::get(format!("http://api.openweathermap.org//geo/1.0/zip?zip={}&appid={}", info.zip, val)).await;
         let body = match response {
             Ok(body) => body,
@@ -127,20 +118,20 @@ async fn clothing_style(info: web::Query<ZipStyle>) -> impl Responder {
         }; 
         let args = Arguments::new(&full_search_key, 5);
         let urls = image_search::urls(args).await;
-        if let Ok(urls) = urls {
-            return HttpResponse::Ok().json(json!(ZipReturn {
-                style: info.style.clone(),
-                weather: weather,
-                location: geo_body,
-                urls: urls
-            }));
-        } else {
-            println!("{:?}", urls);
-            return HttpResponse::InternalServerError().body("API request failed - image search failed");
-        }
+        let urls = match urls {
+            Ok(urls) => urls,
+            Err(error) => {
+                print!("{:?}", error);
+                return HttpResponse::InternalServerError().body("API request failed - image search failed")
+            }
 
-
-        
+        };
+        return HttpResponse::Ok().json(json!(ZipReturn {
+            style: info.style.clone(),
+            weather: weather,
+            location: geo_body,
+            urls: urls
+        }));
     } else {
         return HttpResponse::InternalServerError().body("API Key not found");
     }
@@ -151,18 +142,14 @@ async fn echo(req_body: String) -> impl Responder {
     HttpResponse::Ok().body(req_body)
 }
 
-async fn manual_hello() -> impl Responder {
-    HttpResponse::Ok().body("Hey there!")
-}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    println!("Starting server");
     HttpServer::new(|| {
         App::new()
-            .service(hello)
             .service(echo)
             .service(clothing_style)
-            .route("/hey", web::get().to(manual_hello))
     })
     .bind(("127.0.0.1", 8080))?
     .run()
